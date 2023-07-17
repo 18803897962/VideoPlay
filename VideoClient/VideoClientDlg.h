@@ -24,7 +24,7 @@ public:
 // 实现
 protected:
 	HICON m_hIcon;
-
+	bool m_status;//暂停状态为true 播放状态为false
 	// 生成的消息映射函数
 	virtual BOOL OnInitDialog();
 	afx_msg void OnPaint();
@@ -33,4 +33,15 @@ protected:
 public:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnDestroy();
+	CEdit m_video;
+	CSliderCtrl m_pos;
+	CSliderCtrl m_volume;
+	CEdit M_URL;
+	afx_msg void OnBnClickedBtnPlay();
+	CButton m_btnPlay;
+	afx_msg void OnBnClickedBtnStop();
+	afx_msg void OnTRBNThumbPosChangingSliderPos(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnTRBNThumbPosChangingSliderVolume(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
+	afx_msg void OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
 };
