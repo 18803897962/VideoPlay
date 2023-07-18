@@ -7,6 +7,7 @@
 #include "VideoClient.h"
 #include "VideoClientDlg.h"
 #include "afxdialogex.h"
+#include"VideoClientController.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -22,6 +23,7 @@ CVideoClientDlg::CVideoClientDlg(CWnd* pParent /*=nullptr*/)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 	m_status = false;
+	m_length = 0.0f;
 }
 
 void CVideoClientDlg::DoDataExchange(CDataExchange* pDX)
@@ -30,7 +32,7 @@ void CVideoClientDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_EDIT_play, m_video);
 	DDX_Control(pDX, IDC_SLIDER_POS, m_pos);
 	DDX_Control(pDX, IDC_SLIDER_VOLUME, m_volume);
-	DDX_Control(pDX, IDC_EDIT_URL, M_URL);
+	DDX_Control(pDX, IDC_EDIT_URL, m_url);
 	DDX_Control(pDX, IDC_BTN_PLAY, m_btnPlay);
 }
 
@@ -61,13 +63,13 @@ BOOL CVideoClientDlg::OnInitDialog()
 
 	// TODO: 在此添加额外的初始化代码
 	SetTimer(0, 500, NULL);
-	m_pos.SetRange(0, 100);
+	m_pos.SetRange(0, 1);
 	m_volume.SetRange(0, 100);
-	m_volume.SetTic(10);
 	m_volume.SetTicFreq(20);
 	SetDlgItemText(IDC_STATIC_VOLUME, _T("100%"));
 	SetDlgItemText(IDC_STATIC_TIME, _T("--:--:--/--:--:--"));//设置时间文本框
-
+	m_controller->SetWnd(m_video.GetSafeHwnd());
+	m_url.SetWindowText(_T("file:///"));
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -116,8 +118,20 @@ void CVideoClientDlg::OnTimer(UINT_PTR nIDEvent)
 
 	if (nIDEvent == 0) {
 		//调用Controller获取播放状态以及进度信息
-		//更新IDC_STATIC_VOLUME音量
 		//更新IDC_STATIC_TIME播放时间
+		float pos = m_controller->VideoCtrl(EVLC_GET_POSITION);
+		if (pos != -1.0) {
+			if (m_length <= 0.0f) m_length = m_controller->VideoCtrl(EVLC_GET_LENGTH);
+			if (m_pos.GetRangeMax() <= 1) {
+				m_pos.SetRange(0, (int)m_length);
+			}
+			CString strPos;
+			strPos.Format(_T("%02d:%02d:%02d/%02d:%02d:%02d"), int(pos * m_length) / 3600, (int(pos * m_length) % 3600) / 60, int(pos * m_length) % 60,
+				int(m_length) / 3600, (int(m_length) % 3600) / 60, int(m_length) % 60);
+			SetDlgItemText(IDC_STATIC_TIME, strPos);
+			m_pos.SetPos(int(m_length * pos));
+		}
+		//更新IDC_STATIC_VOLUME音量
 	}
 
 	CDialogEx::OnTimer(nIDEvent);
@@ -135,15 +149,20 @@ void CVideoClientDlg::OnDestroy()
 void CVideoClientDlg::OnBnClickedBtnPlay()
 {
 	if (m_status == false) {
+		CString url;
+		m_url.GetWindowText(url);
+		//TODO:需要判断是否是第一次设置url
+		m_controller->SetMedia(m_controller->unicode2utf8((LPCTSTR)url));//unicode ---> utf-8
 		m_btnPlay.SetWindowText(_T("暂停"));
 		m_status = true;
 		//TODO:调用Controller的播放接口
+		m_controller->VideoCtrl(EVLC_PLAY);
 	}
 	else {
 		m_btnPlay.SetWindowText(_T("播放"));
 		m_status = false;
 		//TODO:调用Controller的暂停接口
-
+		m_controller->VideoCtrl(EVLC_PAUSE);
 	}
 }
 
@@ -153,8 +172,8 @@ void CVideoClientDlg::OnBnClickedBtnStop()
 	m_btnPlay.SetWindowText(_T("播放"));
 	m_status = false;
 	//TODO:调用Controller的停止接口
+	m_controller->VideoCtrl(EVLC_STOP);
 }
-
 
 void CVideoClientDlg::OnTRBNThumbPosChangingSliderPos(NMHDR* pNMHDR, LRESULT* pResult)
 {
@@ -187,11 +206,12 @@ void CVideoClientDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	//TODO:视频进度条待vlc获取媒体之后才能完成
-	TRACE("pos %p column %p cur %p pos %d\r\n", &m_pos, &m_volume, pScrollBar, nPos);
 	if (nSBCode == 5) {
+		//TRACE("pos %p column %p cur %p pos %d\r\n", &m_pos, &m_volume, pScrollBar, nPos);
 		CString strPos;
 		strPos.Format(_T("%d%%"), nPos);
 		SetDlgItemText(IDC_STATIC_TIME, strPos);//设置时间文本框
+		m_controller->SetPosition(float(nPos)/m_length);
 	}
 	CDialogEx::OnHScroll(nSBCode, nPos, pScrollBar);
 }
@@ -201,10 +221,12 @@ void CVideoClientDlg::OnVScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	if (nSBCode == 5) {//由于某种原因在鼠标放开的一瞬间，nPos会变为0，怀疑可能跟nSBCode有关，测试正常情况下nSBCode为5
-		TRACE("pos %p column %p cur %p pos %d\r\n", &m_pos, &m_volume, pScrollBar, nPos);
+		//TRACE("pos %p column %p cur %p pos %d\r\n", &m_pos, &m_volume, pScrollBar, nPos);
 		CString strVolume;
 		strVolume.Format(_T("%d%%"), 100 - nPos);
 		SetDlgItemText(IDC_STATIC_VOLUME, strVolume);//设置声音文本框
+		//调用Controller层调整音量
+		m_controller->SetVolume(100-nPos);
 	}
 	CDialogEx::OnVScroll(nSBCode, nPos, pScrollBar);
 }
