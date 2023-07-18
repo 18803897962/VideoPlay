@@ -19,6 +19,10 @@
 <XPD:ATTR name="#OwnedDiagrams" type="integer">1</XPD:ATTR>
 <XPD:OBJ name="OwnedDiagrams[0]" type="UMLClassDiagram" guid="R7oZnnxEHECAej7cJTG3DQAA">
 <XPD:ATTR name="Name" type="string">Client</XPD:ATTR>
+<XPD:ATTR name="Documentation" type="string">类图的顺序
+1、先确定类
+2、再确定接口
+3、确定类与类之间的关系</XPD:ATTR>
 <XPD:REF name="DiagramOwner">mK1fQ1yoX0ODKOpkRAuQOwAA</XPD:REF>
 <XPD:OBJ name="DiagramView" type="UMLClassDiagramView" guid="2b3pAsf6fUOewGuv5UaYegAA">
 <XPD:REF name="Diagram">R7oZnnxEHECAej7cJTG3DQAA</XPD:REF>

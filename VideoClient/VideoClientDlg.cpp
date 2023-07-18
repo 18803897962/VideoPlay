@@ -189,9 +189,9 @@ void CVideoClientDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 	//TODO:视频进度条待vlc获取媒体之后才能完成
 	TRACE("pos %p column %p cur %p pos %d\r\n", &m_pos, &m_volume, pScrollBar, nPos);
 	if (nSBCode == 5) {
-		CString strVolume;
-		strVolume.Format(_T("%d%%"), nPos);
-		SetDlgItemText(IDC_STATIC_TIME, strVolume);//设置时间文本框
+		CString strPos;
+		strPos.Format(_T("%d%%"), nPos);
+		SetDlgItemText(IDC_STATIC_TIME, strPos);//设置时间文本框
 	}
 	CDialogEx::OnHScroll(nSBCode, nPos, pScrollBar);
 }
