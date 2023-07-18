@@ -206,8 +206,8 @@ void CVideoClientDlg::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	//TODO:视频进度条待vlc获取媒体之后才能完成
+	TRACE("pos %p column %p cur %p pos %d\r\n", &m_pos, &m_volume, pScrollBar, nPos);
 	if (nSBCode == 5) {
-		//TRACE("pos %p column %p cur %p pos %d\r\n", &m_pos, &m_volume, pScrollBar, nPos);
 		CString strPos;
 		strPos.Format(_T("%d%%"), nPos);
 		SetDlgItemText(IDC_STATIC_TIME, strPos);//设置时间文本框
