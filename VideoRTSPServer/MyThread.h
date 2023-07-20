@@ -120,10 +120,7 @@ private:
 				if (WaitForSingleObject(m_hThread, 0) == WAIT_TIMEOUT) {
 					int ret = worker();   //()重载 相当于调用worker的func
 					if (ret != 0) {//大于0则发送警告日志 等于0则正常运行
-						std::string str;
-						str.resize(64);
-						sprintf((char*)str.c_str(), "thread fuond warning code: %d\n", ret);
-						OutputDebugStringA(str.c_str());
+						TRACE("thread fuond warning code: %d\n", ret);
 					}
 					if (ret < 0) {//ret小于0时则终止线程循环
 						//m_worker.store(worker);
@@ -156,7 +153,7 @@ public:
 	MyThreadPoor(){}
 	~MyThreadPoor() {
 		Stop();
-		for (int i = 0; i < m_threads.size(); i++) {
+		for (size_t i = 0; i < m_threads.size(); i++) {
 			delete m_threads[i];
 			m_threads[i] = NULL;
 		}
@@ -176,7 +173,7 @@ public:
 				break;
 			}
 		}
-		if (ret = false) {//线程启动失败，全部关闭 线程池中：如果线程没有全部启动成功，那么就认为线程池是失败的
+		if (ret == false) {//线程启动失败，全部关闭 线程池中：如果线程没有全部启动成功，那么就认为线程池是失败的
 			for (size_t i = 0; i < m_threads.size(); i++) {
 				m_threads[i]->Stop();
 			}
