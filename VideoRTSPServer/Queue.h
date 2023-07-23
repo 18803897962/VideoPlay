@@ -69,7 +69,7 @@ public:
 			CloseHandle(hEvent);
 			return false;
 		}
-		ret=WaitForSingleObject(hEvent, INFINITE)==WAIT_OBJECT_0;
+		ret = WaitForSingleObject(hEvent, INFINITE) == WAIT_OBJECT_0;
 		if (ret) {
 			data = Param.Data;
 		}
@@ -137,7 +137,7 @@ protected:
 			}
 			break;
 		default:
-			OutputDebugString(_T("unknown opeartor code"));
+			TRACE("unknown opeartor code");
 			break;
 		}
 	}
@@ -248,7 +248,7 @@ protected:
 			}
 			break;
 		default:
-			OutputDebugString(_T("unknown opeartor code"));
+			TRACE("unknown opeartor code");
 			break;
 		}
 	}

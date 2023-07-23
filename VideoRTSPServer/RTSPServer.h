@@ -10,8 +10,22 @@ public:
 	RTSPRequest(const RTSPRequest& rsp);
 	RTSPRequest& operator=(const RTSPRequest& rsp);
 	~RTSPRequest();
+	void SetMethod(const MyBuffer& method);
+	void SetUrl(const MyBuffer& url);
+	void SetSession(const MyBuffer& session);
+	void SetSequence(const MyBuffer& seq);
+	void SetClientPort(int ports[]);
+	int method() const;//使用int而不是用MyBuffer的原因是进行switch的效率更高，而无需字符串比较
+	const MyBuffer& url() const;
+	const MyBuffer& session() const;
+	const MyBuffer& sequence() const;
+	const MyBuffer& port(int index = 0) const;
 private:
-	int m_method;//方法 0:OPTIONS 1:DESCRIBE 2:SETUP 3:PLAY 4:TEARDOWM
+	int m_method;//方法 0:OPTIONS 1:DESCRIBE 2:SETUP 3:PLAY 4:TEARDOWM 默认-1
+	MyBuffer m_url;
+	MyBuffer m_session;
+	MyBuffer m_seq;
+	MyBuffer m_client_port[2];
 };
 
 class RTSPReply {//回复类
@@ -21,16 +35,40 @@ public:
 	RTSPReply& operator=(const RTSPReply& rsp);
 	~RTSPReply();
 	MyBuffer toBuffer();
+	void SetOptions(const MyBuffer& option);
+	void SetSequence(const MyBuffer& seq);
+	void SetSdp(const MyBuffer& sdp);
+	void SetClientPort(const MyBuffer& port0, const MyBuffer& port1);
+	void SetServerPort(const MyBuffer& port0, const MyBuffer& port1);
+	void SetSession(const MyBuffer& session);
+	void SetMethod(int method);
+	int GetMethod();
 private:
 	int m_method;//方法 0:OPTIONS 1:DESCRIBE 2:SETUP 3:PLAY 4:TEARDOWM
+	int m_client_port[2];
+	int m_server_port[2];
+	MyBuffer m_sdp;
+	MyBuffer m_options;
+	MyBuffer m_session;
+	MyBuffer m_seq;
 };
 
-class RTSPSession {
+class RTSPSession {//会话类
 public:
 	RTSPSession();
+	RTSPSession(const ESocket& client);
 	RTSPSession(const RTSPSession& session);
 	RTSPSession& operator=(const RTSPSession& session);
-	~RTSPSession();
+	~RTSPSession() {}
+	int PickRequestAndReply();//解析请求包并回复
+private:
+	MyBuffer PickOneLine(MyBuffer& buffer);
+	void Pick(MyBuffer& buffer);
+	RTSPRequest AnalyseRequest(const MyBuffer& buffer);
+	RTSPReply MakeReply(const RTSPRequest& request);
+private:
+	MyBuffer m_id;//会话id
+	ESocket m_client;//对应的客户端
 };
 
 
@@ -45,8 +83,6 @@ public:
 protected:
 	//返回0继续，返回负数表示终止，其它表示警告
 	int threadWorker();
-	RTSPRequest AnalyseRequest(const std::string& data);//解析请求包
-	RTSPReply MakeReply(const RTSPRequest& request);//根据请求得道回复包
 	int ThreadSession();//处理session
 private:
 	ESocket m_socket;
@@ -54,8 +90,8 @@ private:
 	EAddress m_addr;
 	CMyThread m_threadMain;
 	MyThreadPoor m_pool;//线程池用于处理session
-	std::map<std::string, RTSPSession> m_mapSessions;
+	//std::map<std::string, RTSPSession> m_mapSessions;
 	static SocketIniter m_initer;
-	CQueue<ESocket> m_clients;//线程安全队列 用于存放客户端
+	CQueue<RTSPSession> m_lstsession;//线程安全队列 用于存放客户端
 };
 

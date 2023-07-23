@@ -1,6 +1,7 @@
 #pragma once
 #include<WinSock2.h>
 #include <memory>
+#pragma comment(lib, "ws2_32.lib")//將网路api函数导入工程文件
 class CSocket
 {
 public:
@@ -31,6 +32,86 @@ public:
 	}
 private:
 	SOCKET m_sock;
+};
+
+class MyBuffer :public std::string {
+public:
+	MyBuffer(size_t size = 0) :std::string() {//调用string的构造函数
+		if (size > 0) {
+			resize(size);
+			memset((void*)this->c_str(), 0, size);
+		}
+	}
+	MyBuffer(void* buffer, size_t size) :std::string() {
+		memcpy((void*)c_str(), buffer, size);
+	}
+	/*MyBuffer(const MyBuffer& buffer) {
+		resize(buffer.size());
+		memcpy((void*)c_str(),buffer.c_str(),buffer.size());
+	}
+	MyBuffer& operator=(const MyBuffer& buffer) {
+		if (&buffer != this) {
+			resize(buffer.size());
+			memcpy((void*)c_str(), (void*)buffer.c_str(), buffer.size());
+		}
+		return *this;
+	}*/
+	MyBuffer(const char* str) {
+		resize(strlen(str));
+		memcpy((void*)c_str(), str, strlen(str));
+	}
+	~MyBuffer() {
+		std::string::~basic_string();
+	}
+	operator char* () const {
+		return (char*)c_str();
+	}
+	operator const char* () const {
+		return (char*)c_str();
+	}
+	operator BYTE* () const {
+		return (BYTE*)c_str();
+	}
+	operator void* () const {
+		return (void*)c_str();
+	}
+	void Update(void* buffer, size_t size) {
+		resize(size);
+		memcpy((void*)c_str(), buffer, size);
+	}
+	void Zero() {
+		if (size() > 0) {
+			memset((char*)c_str(), 0, size());
+		}
+	}
+	MyBuffer& operator<<(const MyBuffer& buffer) {
+		if (&buffer != this) {
+			*this += buffer;
+		}
+		else {
+			MyBuffer tmp = buffer;
+			*this += tmp;
+		}
+		return *this;
+	}
+	MyBuffer& operator<<(int data) {
+		char s[16] = "";
+		snprintf(s, sizeof(s), "%d", data);
+		*this += s;
+		return *this;
+	}
+	const MyBuffer& operator>>(int& data) const {
+		data = atoi(*this);
+		return *this;
+	}
+	const MyBuffer& operator>>(short& data) const {
+		data = (short)atoi(*this);
+		return *this;
+	}
+	void ResetSize() {
+		size_t size = strlen(c_str());
+		resize(size);
+	}
 };
 
 class EAddress {
@@ -96,6 +177,7 @@ public:
 			m_socket = esock.m_socket;
 			m_isTCP = esock.m_isTCP;
 		}
+		return *this;
 	}
 	~ESocket() {
 		m_socket.reset();
@@ -107,12 +189,15 @@ public:
 		}
 		return bind(*m_socket,addr,addr.Size());
 	}
-	int Listen(int backlog = 5) {
+	int Listen(int backlog = 3) {
 		return listen(*m_socket, backlog);
 	}
 	ESocket Accept(EAddress& addr) {
 		int len=addr.Size();
-		SOCKET s = accept(*m_socket,addr,&len);
+		if (m_socket == nullptr) return ESocket(INVALID_SOCKET,true);
+		SOCKET server = *m_socket;//当无客户端连接时，返回一个空
+		if (server == INVALID_SOCKET) return ESocket(INVALID_SOCKET, true);
+		SOCKET s = accept(*m_socket,(sockaddr*)addr,&len);
 		return ESocket(s, m_isTCP);
 	}
 	int Connect(const EAddress& addr) {
@@ -120,18 +205,29 @@ public:
 	}
 	int Recv(MyBuffer& buffer) {
 		//TODO:待优化
-		return recv(*m_socket, buffer, buffer.size(), 0);
+		int ret = recv(*m_socket, (char*)buffer.c_str(), buffer.size(), 0);
+		if (ret <= 0) printf("error code=%d\r\n", WSAGetLastError());
+		return ret;
 	}
 	int Send(const MyBuffer& buffer) {
-		//TODO:待优化
-		return send(*m_socket, buffer, buffer.size(), 0);
+		size_t index = 0;//已发送的数据量
+		char* pData = buffer;
+		while (index < buffer.size()) {
+			int ret = send(*m_socket, (char*)buffer + index, buffer.size() - index, 0);
+			if (ret < 0) return ret;
+			if (ret == 0) break;//对方关闭
+			index += ret;
+		}
+		return index;
 	}
 	int Close() {
 		m_socket.reset();
+		return 0;
 	}
 	operator SOCKET() {
 		return *m_socket;
 	}
+	
 private:
 	std::shared_ptr<CSocket> m_socket;
 	bool m_isTCP;
@@ -148,38 +244,3 @@ public:
 	}
 };
 
-class MyBuffer :public std::string {
-public:
-	MyBuffer(size_t size = 0) :std::string() {//调用string的构造函数
-		if (size > 0) {
-			resize(size);
-			memset(this, 0, size);
-		}
-	}
-	MyBuffer(void* buffer, size_t size) :std::string() {
-		memcpy((void*)c_str(), buffer, size);
-	}
-	MyBuffer(const char* str) {
-		resize(strlen(str));
-		memcpy((void*)c_str(), str, strlen(str));
-	}
-	~MyBuffer() {
-		std::string::~basic_string();
-	}
-	operator char* () const {
-		return (char*)c_str();
-	}
-	operator const char* () const {
-		return (char*)c_str();
-	}
-	operator BYTE* () const {
-		return (BYTE*)c_str();
-	}
-	operator void* () const {
-		return (void*)c_str();
-	}
-	void Update(void* buffer, size_t size) {
-		resize(size);
-		memcpy((void*)c_str(), buffer, size);
-	}
-};

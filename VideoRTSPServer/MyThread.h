@@ -4,18 +4,23 @@
 #include<mutex>
 #include <windows.h>
 #include<varargs.h>
-void MYTRACE(const char* format, ...) {
-	va_list ap;
-	va_start(ap,format);
-	std::string sBuffer;
-	sBuffer.resize(1024 * 10);
-	vsprintf((char*)(sBuffer.c_str()), format, ap);
-	OutputDebugStringA(sBuffer.c_str());
-	va_end(ap);
-}
 #ifndef TRACE
-#define TRACE MYTRACE
+#define TRACE MyTool::MYTRACE
 #endif // !TRACE
+
+class MyTool {
+public:
+	static void MYTRACE(const char* format, ...) {
+		va_list ap;
+		va_start(ap, format);
+		std::string sBuffer;
+		sBuffer.resize(1024 * 10);
+		vsprintf((char*)(sBuffer.c_str()), format, ap);
+		OutputDebugStringA(sBuffer.c_str());
+		va_end(ap);
+	}
+};
+
 
 class ThreadFuncBase {//线程接口
 };
@@ -98,7 +103,7 @@ public:
 		}
 		::ThreadWorker* pworker = new ::ThreadWorker(worker);
 		TRACE("new pWorker = %08X m_worker=%08X\r\n", pworker, m_worker.load());
-		m_worker.store(new ::ThreadWorker(worker));
+		m_worker.store(pworker);
 	}
 	bool IsIdle() {//是否空闲 true表示空闲 false表示正在工作
 		if (m_worker.load() == NULL) {

@@ -21,6 +21,9 @@
     <ClCompile Include="RTSPServer.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="MediaPlay.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Socket.h">
@@ -33,6 +36,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="Queue.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MediaPlay.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
