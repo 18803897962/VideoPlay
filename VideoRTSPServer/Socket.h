@@ -1,6 +1,7 @@
 #pragma once
 #include<WinSock2.h>
 #include <memory>
+#include"base.h"
 #pragma comment(lib, "ws2_32.lib")//將网路api函数导入工程文件
 class CSocket
 {
@@ -34,92 +35,19 @@ private:
 	SOCKET m_sock;
 };
 
-class MyBuffer :public std::string {
-public:
-	MyBuffer(size_t size = 0) :std::string() {//调用string的构造函数
-		if (size > 0) {
-			resize(size);
-			memset((void*)this->c_str(), 0, size);
-		}
-	}
-	MyBuffer(void* buffer, size_t size) :std::string() {
-		memcpy((void*)c_str(), buffer, size);
-	}
-	/*MyBuffer(const MyBuffer& buffer) {
-		resize(buffer.size());
-		memcpy((void*)c_str(),buffer.c_str(),buffer.size());
-	}
-	MyBuffer& operator=(const MyBuffer& buffer) {
-		if (&buffer != this) {
-			resize(buffer.size());
-			memcpy((void*)c_str(), (void*)buffer.c_str(), buffer.size());
-		}
-		return *this;
-	}*/
-	MyBuffer(const char* str) {
-		resize(strlen(str));
-		memcpy((void*)c_str(), str, strlen(str));
-	}
-	~MyBuffer() {
-		std::string::~basic_string();
-	}
-	operator char* () const {
-		return (char*)c_str();
-	}
-	operator const char* () const {
-		return (char*)c_str();
-	}
-	operator BYTE* () const {
-		return (BYTE*)c_str();
-	}
-	operator void* () const {
-		return (void*)c_str();
-	}
-	void Update(void* buffer, size_t size) {
-		resize(size);
-		memcpy((void*)c_str(), buffer, size);
-	}
-	void Zero() {
-		if (size() > 0) {
-			memset((char*)c_str(), 0, size());
-		}
-	}
-	MyBuffer& operator<<(const MyBuffer& buffer) {
-		if (&buffer != this) {
-			*this += buffer;
-		}
-		else {
-			MyBuffer tmp = buffer;
-			*this += tmp;
-		}
-		return *this;
-	}
-	MyBuffer& operator<<(int data) {
-		char s[16] = "";
-		snprintf(s, sizeof(s), "%d", data);
-		*this += s;
-		return *this;
-	}
-	const MyBuffer& operator>>(int& data) const {
-		data = atoi(*this);
-		return *this;
-	}
-	const MyBuffer& operator>>(short& data) const {
-		data = (short)atoi(*this);
-		return *this;
-	}
-	void ResetSize() {
-		size_t size = strlen(c_str());
-		resize(size);
-	}
-};
 
 class EAddress {
 public:
-	EAddress() { 
-		m_port = -1; 
+	EAddress():m_IP(std::string()),m_port(0) { 
 		memset(&m_addr, 0, sizeof(sockaddr_in)); 
 		m_addr.sin_family = AF_INET;
+	}
+	EAddress(const std::string& strIP, unsigned short port) {
+		m_IP = strIP;
+		m_port = port;
+		m_addr.sin_family = AF_INET;
+		m_addr.sin_port = htons(port);
+		m_addr.sin_addr.s_addr = inet_addr(strIP.c_str());
 	}
 	~EAddress() {}
 	EAddress(const EAddress& addr) {
@@ -133,6 +61,11 @@ public:
 			m_port = addr.m_port;
 			memcpy(&m_addr, &addr.m_addr, sizeof(sockaddr_in));
 		}
+		return *this;
+	}
+	EAddress& operator=(unsigned short port) {
+		m_port = port;
+		m_addr.sin_port = htons(port);
 		return *this;
 	}
 	operator const sockaddr* () const {
@@ -157,9 +90,18 @@ public:
 	int Size() const { 
 		return sizeof(sockaddr_in); 
 	}
+	const std::string IP() const{
+		return m_IP;
+	}
+	const unsigned short port() const{
+		return m_port;
+	}
+	void Fresh() {
+		m_IP = inet_ntoa(m_addr.sin_addr);
+	}
 private:
 	std::string m_IP;
-	short m_port;
+	unsigned short m_port;
 	sockaddr_in m_addr;
 };
 
@@ -227,7 +169,6 @@ public:
 	operator SOCKET() {
 		return *m_socket;
 	}
-	
 private:
 	std::shared_ptr<CSocket> m_socket;
 	bool m_isTCP;

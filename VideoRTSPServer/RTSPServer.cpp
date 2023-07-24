@@ -4,6 +4,7 @@
 SocketIniter RTSPServer::m_initer;
 RTSPServer::RTSPServer() :m_socket(true), m_status(0), m_pool(3) {
 	m_threadMain.UpdateWorker(ThreadWorker(this, (FUNCTYPE)&RTSPServer::threadWorker));//threadWorker¿ÉÄÜ´æÔÚÍ¬Ãû
+	m_h264.Open("./test.h264", 96);
 }
 
 RTSPServer::~RTSPServer() {
@@ -45,9 +46,24 @@ int RTSPServer::ThreadSession() {//Õë¶ÔÃ¿¸ö¿Í»§¶Ë¶¼½¨Á¢Ò»¸ö»á»°
 	//TODO:´«²Î ¿Í»§¶ËÌ×½Ó×ÖÒªÓëSession½øĞĞÅä¶Ô
 	RTSPSession session;
 	if (m_lstsession.PopFront(session)) {
-		return session.PickRequestAndReply();
+		return session.PickRequestAndReply(RTSPServer::PlayCallBack,this);
 	}
 	return -1;
+}
+
+void RTSPServer::PlayCallBack(RTSPServer* thiz, RTSPSession& session){
+	EAddress client_addr = session.GetUDPAddress();
+	thiz->UDPWorker(client_addr);
+}
+
+void RTSPServer::UDPWorker(EAddress& client_addr){
+	MyBuffer frame =  m_h264.ReadOneFrame();
+	RTPFrame rtp;
+	int ret = 0;
+	while (frame.size() > 0) {
+		ret = m_helper.SendMediaFrame(rtp, frame, client_addr);
+		frame = m_h264.ReadOneFrame();
+	}
 }
 
 RTSPSession::RTSPSession() {
@@ -56,6 +72,7 @@ RTSPSession::RTSPSession() {
 	m_id.resize(8);
 	snprintf((char*)m_id.c_str(), m_id.size(), "%u%u", uuid.Data1,uuid.Data2);
 	m_id.ResetSize();
+	m_port = 0;
 }
 
 RTSPSession::RTSPSession(const ESocket& client) : m_client(client) {
@@ -64,22 +81,25 @@ RTSPSession::RTSPSession(const ESocket& client) : m_client(client) {
 	m_id.resize(8);
 	snprintf((char*)m_id.c_str(), m_id.size(), "%u%u", uuid.Data1, uuid.Data2);
 	m_id.ResetSize();
+	m_port = 0;
 }
 
 RTSPSession::RTSPSession(const RTSPSession& session) {
 	m_id = session.m_id;
 	m_client = session.m_client;
+	m_port = session.m_port;
 }
 
 RTSPSession& RTSPSession::operator=(const RTSPSession& session) {
 	if (&session != this) {
 		m_id = session.m_id;
 		m_client = session.m_client;
+		m_port = session.m_port;
 	}
 	return *this;
 }
 
-int RTSPSession::PickRequestAndReply() {
+int RTSPSession::PickRequestAndReply(RTSPPLAYCB cb, RTSPServer* thiz) {
 	//1¡¢Pick 
 	//2¡¢Analyse
 	//3¡¢Reply
@@ -97,13 +117,30 @@ int RTSPSession::PickRequestAndReply() {
 			TRACE("buffer:%s\r\n", buffer);
 			return -2;
 		}
+		
 		RTSPReply reply = MakeReply(request);
 		std::string str = (char*)reply.toBuffer();
 		printf("%s\r\n", str.c_str());
 		ret = m_client.Send(reply.toBuffer());
+
+		if (request.method() == 2) {
+			m_port = (unsigned short)atoi(request.port());
+		}
+		if (request.method() == 3) {//Èç¹ûÊÇ²¥·Å
+			cb(thiz, *this);
+		}
 	} while (ret >= 0);
 	if (ret < 0) return ret;
 	return 0;
+}
+
+EAddress RTSPSession::GetUDPAddress(){
+	EAddress client_addr;
+	int len = client_addr.Size();
+	getsockname(m_client,client_addr,&len);
+	client_addr.Fresh();
+	client_addr = m_port;
+	return client_addr;
 }
 
 MyBuffer RTSPSession::PickOneLine(MyBuffer& buffer) {
@@ -170,6 +207,9 @@ RTSPRequest RTSPSession::AnalyseRequest(const MyBuffer& buffer) {//·ÖÎö½»»¥Ê±¿Í»
 	}
 	else if (strcmp(method, "SETUP") == 0) {
 		line = PickOneLine(data);
+		while (strstr(line.c_str(), "client_port=") == NULL) {
+			line = PickOneLine(data);
+		}
 		int port[2] = { 0 };
 		if (sscanf(line, "Transport: RTP/AVP;unicast;client_port=%d-%d\r\n", &port[0], &port[1]) != 2) {
 			TRACE("error at :[%s]:(%d)(%s)\r\n", __FILE__, __LINE__, __FUNCTION__);
@@ -182,7 +222,7 @@ RTSPRequest RTSPSession::AnalyseRequest(const MyBuffer& buffer) {//·ÖÎö½»»¥Ê±¿Í»
 		line = PickOneLine(data);
 		MyBuffer session(64);
 		if (sscanf(line, "Session: %s\r\n", (char*)session) == 1) {
-			session.ResetSize();
+			//session.ResetSize();
 			request.SetSession(session);
 			return request;
 		}
@@ -203,18 +243,11 @@ RTSPReply RTSPSession::MakeReply(const RTSPRequest& request) {
 	switch (request.method())
 	{
 	case 0://OPTION
-		reply.SetOptions("Public: OPTIONS, DESCRIBE, SETUP, TEARDOWN, PLAY\r\n");
+		reply.SetOptions("Public: OPTIONS, DESCRIBE, SETUP, PLAY, TEARDOWN\r\n");
 		break;
 	case 1://DESCRIBE
 		//TODO:sdpµÄÉèÖÃ
 	{
-		/*MyBuffer sdp;
-		sdp << "v=0\r\n";
-		sdp << "o=- " << (char*)m_id << " 1 IN IP4 127.0.0.1\r\n";
-		sdp << "t=0 0\r\n" << "a=control:*\r\n" << "m=video 0 RTP/AVP 96\r\n";
-		sdp << "a=rtpmap:96 H264/90000\r\n" << "a=control:track0\r\n";
-		reply.SetSdp(sdp);*/
-
 		MyBuffer sdp;
 		sdp << "v=0\r\n";
 		sdp << "o=- " << (char*)m_id << " 1 IN IP4 127.0.0.1\r\n";
@@ -222,7 +255,6 @@ RTSPReply RTSPSession::MakeReply(const RTSPRequest& request) {
 		sdp << "a=framerate:24\r\n";
 		sdp << "a=rtpmap:96 H264/90000\r\n" << "a=control:track0\r\n";
 		reply.SetSdp(sdp);
-
 	}
 	break;
 	case 2://SETUP

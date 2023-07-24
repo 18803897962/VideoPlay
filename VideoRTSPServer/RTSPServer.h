@@ -4,6 +4,13 @@
 #include"Socket.h"
 #include"MyThread.h"
 #include"Queue.h"
+#include"RTPHelper.h"
+#include"MediaFile.h"
+class RTSPServer;
+class RTSPSession;
+typedef void(*RTSPPLAYCB)(RTSPServer*, RTSPSession&);//回调函数
+//void PlayCallBack(RTSPServer* thiz, RTSPSession& session);
+
 class RTSPRequest {//请求类
 public:
 	RTSPRequest();
@@ -60,7 +67,8 @@ public:
 	RTSPSession(const RTSPSession& session);
 	RTSPSession& operator=(const RTSPSession& session);
 	~RTSPSession() {}
-	int PickRequestAndReply();//解析请求包并回复
+	int PickRequestAndReply(RTSPPLAYCB cb,RTSPServer* thiz);//解析请求包并回复
+	EAddress GetUDPAddress();
 private:
 	MyBuffer PickOneLine(MyBuffer& buffer);
 	void Pick(MyBuffer& buffer);
@@ -69,6 +77,7 @@ private:
 private:
 	MyBuffer m_id;//会话id
 	ESocket m_client;//对应的客户端
+	unsigned short m_port;
 };
 
 
@@ -84,6 +93,8 @@ protected:
 	//返回0继续，返回负数表示终止，其它表示警告
 	int threadWorker();
 	int ThreadSession();//处理session
+	static void PlayCallBack(RTSPServer* thiz, RTSPSession& session);//回调函数
+	void UDPWorker(EAddress& client_addr);
 private:
 	ESocket m_socket;
 	int m_status;//0未初始化 1初始化完成 2正在运行 3关闭
@@ -93,5 +104,7 @@ private:
 	//std::map<std::string, RTSPSession> m_mapSessions;
 	static SocketIniter m_initer;
 	CQueue<RTSPSession> m_lstsession;//线程安全队列 用于存放客户端
+	RTPHelper m_helper;
+	MediaFile m_h264;
 };
 

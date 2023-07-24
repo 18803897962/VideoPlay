@@ -363,3 +363,5 @@ MigrationBackup/
 FodyWeavers.xsd
 /VideoClient/plugins
 /VideoClient/股市讨论.mp4
+/VideoRTSPServer/out.bin
+/VideoRTSPServer/test.h264
